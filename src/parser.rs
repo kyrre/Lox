@@ -2,8 +2,20 @@
 
 use crate::ast::Expr;
 use crate::tokens::{Literal, Token, TokenType};
+use std::{error, fmt};
 
-use TokenType::{*};
+use TokenType::*;
+
+#[derive(Debug, Clone)]
+struct ParserError;
+
+impl error::Error for ParserError {}
+
+impl fmt::Display for ParserError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Parser failed!")
+    }
+}
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -11,21 +23,25 @@ pub struct Parser {
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Parser { tokens, current: 0 }
     }
 
-    fn expression(&mut self) -> Expr {
+    pub fn parse(&mut self) -> Option<Expr> {
+        self.expression().ok()
+    }
+
+    fn expression(&mut self) -> Result<Expr, ParserError> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Expr {
+    fn equality(&mut self) -> Result<Expr, ParserError> {
         // equality → comparison ( ( "!=" | "==" ) comparison )* ;
-        let mut expr = self.comparison();
+        let mut expr = self.comparison()?;
 
         while self.matches(vec![BANG_EQUAL, EQUAL_EQUAL]) {
             let operator = self.previous();
-            let right = self.comparison();
+            let right = self.comparison()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -33,21 +49,21 @@ impl Parser {
             }
         }
 
-        expr
+        Ok(expr)
     }
 
     fn previous(&mut self) -> Token {
         self.tokens[self.current - 1].clone()
     }
 
-    fn comparison(&mut self) -> Expr {
+    fn comparison(&mut self) -> Result<Expr, ParserError> {
         // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 
-        let mut expr = self.term();
+        let mut expr = self.term()?;
 
         while self.matches(vec![GREATER, GREATER_EQUAL, LESS, LESS_EQUAL]) {
             let operator = self.previous();
-            let right = self.term();
+            let right = self.term()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
                 operator,
@@ -55,19 +71,19 @@ impl Parser {
             };
         }
 
-        expr
+        Ok(expr)
     }
 
     // can we rewrite these using, say, a macro?
     // or better just a function pointer
-    fn term(&mut self) -> Expr {
+    fn term(&mut self) -> Result<Expr, ParserError> {
         // term   → factor ( ( "-" | "+" ) factor )* ;
 
-        let mut expr = self.factor();
+        let mut expr = self.factor()?;
 
         while self.matches(vec![TokenType::MINUS, TokenType::PLUS]) {
             let operator = self.previous();
-            let right = self.factor();
+            let right = self.factor()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -75,15 +91,15 @@ impl Parser {
             };
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn factor(&mut self) -> Expr {
-        let mut expr = self.unary();
+    fn factor(&mut self) -> Result<Expr, ParserError> {
+        let mut expr = self.unary()?;
 
         while self.matches(vec![SLASH, STAR]) {
             let operator = self.previous();
-            let right = self.unary();
+            let right = self.unary()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -91,62 +107,67 @@ impl Parser {
             };
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn unary(&mut self) -> Expr {
+    fn unary(&mut self) -> Result<Expr, ParserError> {
         if self.matches(vec![BANG, MINUS]) {
             let operator = self.previous();
-            let right = self.unary();
-            Expr::Unary {
+            let right = self.unary()?;
+            Ok(Expr::Unary {
                 operator: operator,
                 right: Box::new(right),
-            }
+            })
         } else {
             self.primary()
         }
     }
 
     /// HERE
-    fn primary(&mut self) -> Expr {
+    fn primary(&mut self) -> Result<Expr, ParserError> {
         // primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
         if self.matches(vec![FALSE]) {
-            return Expr::Literal {
+            return Ok(Expr::Literal {
                 value: Literal::Boolean(false),
-            };
+            });
         }
         if self.matches(vec![TRUE]) {
-            return Expr::Literal {
+            return Ok(Expr::Literal {
                 value: Literal::Boolean(true),
-            };
+            });
         }
         if self.matches(vec![NIL]) {
-            return Expr::Literal {
+            return Ok(Expr::Literal {
                 value: Literal::None,
-            };
+            });
         }
         if self.matches(vec![STRING, NUMBER]) {
-            return Expr::Literal {
-                value: self.previous().literal
-            };
+            return Ok(Expr::Literal {
+                value: self.previous().literal,
+            });
         }
         if self.matches(vec![LEFT_PAREN]) {
-            let expr = self.expression();
+            let expr = self.expression()?;
             self.consume(RIGHT_PAREN, "Expect ')' after expression.");
-            return Expr::Grouping{expression: Box::new(expr)};
+            return Ok(Expr::Grouping {
+                expression: Box::new(expr),
+            });
         }
 
-        Expr::Literal {
-            value: Literal::Number(154.0),
-        }
+        eprintln!("Expected expression");
+        Err(ParserError)
     }
-    
-    fn consume(&mut self, _type: TokenType, error: &str) {
+
+    fn consume(&mut self, _type: TokenType, error: &str) -> Result<(), ParserError> {
         if self.check(_type) {
             self.advance();
+            Ok(())
         } else {
-            panic!("{}", error);
+            let token = self.peek();
+            // todo: refactor this into a separate function or module
+            eprintln!("{} at {} {}", token.line, token.token_type, error);
+            Err(ParserError)
         }
     }
 
@@ -182,5 +203,27 @@ impl Parser {
         }
 
         self.previous()
+    }
+
+    fn synchronize(&mut self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            // we assume that this marks the end of a statement!
+            if self.previous().token_type == SEMICOLON {
+                return;
+            }
+
+
+            // we assume this is the start of a statement
+            match self.peek().token_type {
+                CLASS | FUN | VAR | FOR | IF | WHILE | PRINT | RETURN => {
+                    return;
+                }
+                _ => {}
+            }
+
+            self.advance();
+        }
     }
 }

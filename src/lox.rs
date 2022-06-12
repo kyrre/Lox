@@ -2,8 +2,10 @@ use std::error;
 use std::fmt;
 use std::path::Path;
 
+use crate::ast::AstPrinter;
 use crate::scanner::Scanner;
 use crate::tokens::Token;
+use crate::parser::Parser;
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
@@ -72,9 +74,21 @@ impl Lox {
     pub fn run(&mut self, s: &String) {
         let mut scanner = Scanner::new(s.clone());
         let tokens = scanner.scan_tokens();
+        let mut parser = Parser::new(tokens.clone());
+        let expression = parser.parse();
 
-        for token in tokens {
-            println!("{}", token);
+        if self.had_error {
+            return;
         }
+
+
+        let a = AstPrinter{};
+        println!("{}", a.print(&expression.unwrap()));
+
+
+
+        //for token in tokens {
+        //    println!("{}", token);
+        //}
     }
 }
