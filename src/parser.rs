@@ -123,7 +123,6 @@ impl Parser {
         }
     }
 
-    /// HERE
     fn primary(&mut self) -> Result<Expr, ParserError> {
         // primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
@@ -155,6 +154,7 @@ impl Parser {
             });
         }
 
+        // println!("current token: {}", self.peek());
         eprintln!("Expected expression");
         Err(ParserError)
     }

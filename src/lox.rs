@@ -6,6 +6,7 @@ use crate::ast::AstPrinter;
 use crate::scanner::Scanner;
 use crate::tokens::Token;
 use crate::parser::Parser;
+use crate::interpreter::Interpreter;
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
@@ -22,11 +23,13 @@ impl fmt::Display for SyntaxError {
 
 pub struct Lox {
     had_error: bool,
+
+    interpreter: Interpreter
 }
 
 impl Lox {
     pub fn new() -> Self {
-        Lox { had_error: false }
+        Lox { had_error: false, interpreter: Interpreter {  } }
     }
 
     pub fn error(&self, line: u64, message: &str) {
@@ -46,6 +49,7 @@ impl Lox {
             }
             self.run(&line);
             self.had_error = false;
+            line.clear();
         }
 
         Ok(())
@@ -81,9 +85,14 @@ impl Lox {
             return;
         }
 
+        if let Some(expr) = expression {
+            self.interpreter.interpret(&expr);
+        }
 
-        let a = AstPrinter{};
-        println!("{}", a.print(&expression.unwrap()));
+
+
+        // let a = AstPrinter{};
+        // println!("{}", a.print(&expression.unwrap()));
 
 
 

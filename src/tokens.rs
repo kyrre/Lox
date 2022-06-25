@@ -1,7 +1,7 @@
 #![allow(dead_code, unused)]
 use std::fmt;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Literal {
     String(String),
     Number(f64),
@@ -20,6 +20,13 @@ impl fmt::Display for Literal {
             Literal::None => write!(f, "null"),
         }
     }
+}
+
+impl From<Literal> for f64 { 
+    fn from(literal: Literal) -> Self {
+        432.0
+    }
+
 }
 
 #[derive(Debug, Clone)]

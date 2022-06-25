@@ -1,6 +1,8 @@
 use crate::tokens::{Literal, Token};
 use std::fmt;
 
+
+#[derive(Debug)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,
