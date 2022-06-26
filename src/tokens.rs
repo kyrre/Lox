@@ -22,11 +22,10 @@ impl fmt::Display for Literal {
     }
 }
 
-impl From<Literal> for f64 { 
+impl From<Literal> for f64 {
     fn from(literal: Literal) -> Self {
         432.0
     }
-
 }
 
 #[derive(Debug, Clone)]
@@ -52,7 +51,6 @@ impl fmt::Display for Token {
         write!(f, "{} ", self.token_type);
         write!(f, "{} ", self.lexeme);
         write!(f, "{}", self.literal)
-
     }
 }
 

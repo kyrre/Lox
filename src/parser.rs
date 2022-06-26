@@ -1,21 +1,12 @@
 #![allow(dead_code, unused)]
 
 use crate::ast::Expr;
+use crate::errors::{LoxError, Result};
 use crate::tokens::{Literal, Token, TokenType};
 use std::{error, fmt};
 
 use TokenType::*;
 
-#[derive(Debug, Clone)]
-struct ParserError;
-
-impl error::Error for ParserError {}
-
-impl fmt::Display for ParserError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Parser failed!")
-    }
-}
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -31,11 +22,11 @@ impl Parser {
         self.expression().ok()
     }
 
-    fn expression(&mut self) -> Result<Expr, ParserError> {
+    fn expression(&mut self) -> Result<Expr> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Result<Expr, ParserError> {
+    fn equality(&mut self) -> Result<Expr> {
         // equality → comparison ( ( "!=" | "==" ) comparison )* ;
         let mut expr = self.comparison()?;
 
@@ -56,7 +47,7 @@ impl Parser {
         self.tokens[self.current - 1].clone()
     }
 
-    fn comparison(&mut self) -> Result<Expr, ParserError> {
+    fn comparison(&mut self) -> Result<Expr> {
         // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 
         let mut expr = self.term()?;
@@ -76,7 +67,7 @@ impl Parser {
 
     // can we rewrite these using, say, a macro?
     // or better just a function pointer
-    fn term(&mut self) -> Result<Expr, ParserError> {
+    fn term(&mut self) -> Result<Expr> {
         // term   → factor ( ( "-" | "+" ) factor )* ;
 
         let mut expr = self.factor()?;
@@ -94,7 +85,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<Expr, ParserError> {
+    fn factor(&mut self) -> Result<Expr> {
         let mut expr = self.unary()?;
 
         while self.matches(vec![SLASH, STAR]) {
@@ -110,7 +101,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn unary(&mut self) -> Result<Expr, ParserError> {
+    fn unary(&mut self) -> Result<Expr> {
         if self.matches(vec![BANG, MINUS]) {
             let operator = self.previous();
             let right = self.unary()?;
@@ -123,7 +114,7 @@ impl Parser {
         }
     }
 
-    fn primary(&mut self) -> Result<Expr, ParserError> {
+    fn primary(&mut self) -> Result<Expr> {
         // primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
         if self.matches(vec![FALSE]) {
@@ -156,10 +147,10 @@ impl Parser {
 
         // println!("current token: {}", self.peek());
         eprintln!("Expected expression");
-        Err(ParserError)
+        Err(LoxError::Parse {})
     }
 
-    fn consume(&mut self, _type: TokenType, error: &str) -> Result<(), ParserError> {
+    fn consume(&mut self, _type: TokenType, error: &str) -> Result<()> {
         if self.check(_type) {
             self.advance();
             Ok(())
@@ -167,7 +158,7 @@ impl Parser {
             let token = self.peek();
             // todo: refactor this into a separate function or module
             eprintln!("{} at {} {}", token.line, token.token_type, error);
-            Err(ParserError)
+            Err(LoxError::Parse{})
         }
     }
 
@@ -213,7 +204,6 @@ impl Parser {
             if self.previous().token_type == SEMICOLON {
                 return;
             }
-
 
             // we assume this is the start of a statement
             match self.peek().token_type {

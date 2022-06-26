@@ -29,7 +29,7 @@ fn test_ast() {
 
     let a = AstPrinter {};
 
-    println!("{}", a.print(&expr));
+    println!("{:?}", a.print(&expr));
 }
 
 fn main() {

@@ -2,7 +2,6 @@ use std::error;
 use std::fmt;
 use std::path::Path;
 
-use crate::ast::AstPrinter;
 use crate::scanner::Scanner;
 use crate::tokens::Token;
 use crate::parser::Parser;

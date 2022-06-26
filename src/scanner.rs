@@ -1,19 +1,7 @@
 use std::collections::HashMap;
-use std::{error, fmt};
 
 use crate::tokens::TokenType::{self, *};
 use crate::tokens::{Literal, Token};
-
-#[derive(Debug, Clone)]
-struct ScannerError;
-
-impl error::Error for ScannerError {}
-
-impl fmt::Display for ScannerError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Scanner failed!")
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct Scanner<'a> {
@@ -94,7 +82,6 @@ impl<'a> Scanner<'a> {
 
     fn scan_token(&mut self) {
         let c = self.advance();
-        // let keywords = HashMap::new();
 
         match c {
             '(' => self.add_token(LEFT_PAREN),
@@ -261,12 +248,3 @@ impl<'a> Scanner<'a> {
         self.tokens.clone()
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     #[test]
-//     fn it_works() {
-//         let result = 2 + 2;
-//         assert_eq!(result, 4);
-//     }
-// }
