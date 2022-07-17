@@ -1,18 +1,22 @@
 use std::{fmt, error};
 
 #[derive(Debug, Clone)]
-pub enum LoxError {
+pub enum Error {
     Parse, 
-    Runtime,
+    Runtime(String),
+    Syntax,
     Scanner,
 }
 
-impl error::Error for LoxError {}
+impl error::Error for Error {}
 
-impl fmt::Display for LoxError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Lox generic error!")
+        match self {
+            Error::Runtime(s) => write!(f, "{}", s),
+            _ => write!(f, "Lox generic error!"),
+        }
     }
 }
 
-pub type Result<T> = std::result::Result<T, LoxError>;
+pub type Result<T> = std::result::Result<T, Error>;

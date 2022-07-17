@@ -1,12 +1,13 @@
 #![allow(dead_code, unused)]
 
-use crate::ast::Expr;
-use crate::errors::{LoxError, Result};
-use crate::tokens::{Literal, Token, TokenType};
 use std::{error, fmt};
 
-use TokenType::*;
+use crate::ast::Expr;
+use crate::errors::{Error, Result};
+use crate::statement::Stmt;
+use crate::tokens::{Literal, Token, TokenType};
 
+use TokenType::*;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -18,10 +19,77 @@ impl Parser {
         Parser { tokens, current: 0 }
     }
 
-    pub fn parse(&mut self) -> Option<Expr> {
-        self.expression().ok()
+    pub fn parse(&mut self) -> Result<Vec<Stmt>> {
+        let mut statements = Vec::<Result<Stmt>>::new();
+        while !self.is_at_end() {
+            statements.push(self.declaration())
+        }
+
+        let statements: Result<Vec<Stmt>> = statements.into_iter().collect();
+        statements
     }
 
+    fn declaration(&mut self) -> Result<Stmt> {
+        // varDecl  → "var" IDENTIFIER ( "=" expression )? ";" ;
+
+        let res = if self.matches(vec![VAR]) {
+            self.var_declaration()
+        } else {
+            self.statement()
+        };
+
+        if res.is_err() {
+            self.synchronize();
+            Ok(Stmt::Print(Expr::Literal {
+                value: Literal::String("called sync".to_string()),
+            }))
+        } else {
+            res
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Stmt> {
+
+        let name = self.consume(IDENTIFIER, "Expect variable name.")?;
+
+        let mut initializer: Option<Expr> = None;
+
+        let initializer = if self.matches(vec![EQUAL]) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+
+
+        self.consume(SEMICOLON, "Expect ';' after variable declaration")?;
+
+        Ok(Stmt::Variable{name:name, initializer: initializer})
+
+    }
+
+    fn statement(&mut self) -> Result<Stmt> {
+        /*
+            statement -> exprStmt | printStmt ;
+        */
+
+        if self.matches(vec![PRINT]) {
+            self.print_statement()
+        } else {
+            self.expr_statement()
+        }
+    }
+
+    fn print_statement(&mut self) -> Result<Stmt> {
+        let expr = self.expression();
+        self.consume(SEMICOLON, "Expect ';' after value")?;
+        expr.map(Stmt::Print)
+    }
+
+    fn expr_statement(&mut self) -> Result<Stmt> {
+        let expr = self.expression();
+        self.consume(SEMICOLON, "Expect ';' after expression")?;
+        expr.map(Stmt::Expression)
+    }
     fn expression(&mut self) -> Result<Expr> {
         self.equality()
     }
@@ -144,21 +212,24 @@ impl Parser {
                 expression: Box::new(expr),
             });
         }
+        if self.matches(vec![IDENTIFIER]) {
+            return Ok(Expr::Variable { name: self.previous() })
+        }
+
 
         // println!("current token: {}", self.peek());
         eprintln!("Expected expression");
-        Err(LoxError::Parse {})
+        Err(Error::Parse {})
     }
 
-    fn consume(&mut self, _type: TokenType, error: &str) -> Result<()> {
+    fn consume(&mut self, _type: TokenType, error: &str) -> Result<Token> {
         if self.check(_type) {
-            self.advance();
-            Ok(())
+            Ok(self.advance())
         } else {
             let token = self.peek();
             // todo: refactor this into a separate function or module
             eprintln!("{} at {} {}", token.line, token.token_type, error);
-            Err(LoxError::Parse{})
+            Err(Error::Parse {})
         }
     }
 

@@ -19,6 +19,9 @@ pub enum Expr {
     Literal {
         value: Literal,
     },
+    Variable {
+        name: Token
+    } 
 }
 
 pub trait Visitor<T> {
@@ -27,6 +30,7 @@ pub trait Visitor<T> {
     fn visit_unary_expr(&self, operator: &Token, right: &Expr) -> Result<T>;
     fn visit_grouping_expr(&self, expr: &Expr) -> Result<T>;
     fn visit_literal_expr(&self, value: &Literal) -> Result<T>;
+    fn visit_variable_expr(&self, name: &Token) -> Result<T>;
 }
 
 impl Expr {
@@ -40,6 +44,8 @@ impl Expr {
             Expr::Unary { operator, right } => visitor.visit_unary_expr(operator, right),
             Expr::Grouping { expression } => visitor.visit_grouping_expr(expression),
             Expr::Literal { value } => visitor.visit_literal_expr(value),
+            Expr::Variable { name } => visitor.visit_variable_expr(&name),
+
         }
     }
 }
@@ -90,4 +96,9 @@ impl Visitor<String> for AstPrinter {
     fn visit_literal_expr(&self, value: &Literal) -> Result<String> {
         Ok(value.to_string())
     }
+
+    fn visit_variable_expr(&self, name: &Token) -> Result<String> {
+        Ok(name.lexeme.clone())
+    }
+
 }

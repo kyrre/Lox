@@ -22,11 +22,11 @@ impl fmt::Display for Literal {
     }
 }
 
-impl From<Literal> for f64 {
-    fn from(literal: Literal) -> Self {
-        432.0
-    }
-}
+//impl From<Literal> for f64 {
+//    fn from(literal: Literal) -> Self {
+//        432.0
+//    }
+//}
 
 #[derive(Debug, Clone)]
 pub struct Token {

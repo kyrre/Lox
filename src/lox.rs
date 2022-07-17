@@ -1,34 +1,25 @@
 use std::error;
-use std::fmt;
 use std::path::Path;
 
+use crate::errors::Error;
+use crate::interpreter::Interpreter;
+use crate::parser::Parser;
 use crate::scanner::Scanner;
 use crate::tokens::Token;
-use crate::parser::Parser;
-use crate::interpreter::Interpreter;
 
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
-#[derive(Debug, Clone)]
-struct SyntaxError;
-
-impl error::Error for SyntaxError {}
-
-impl fmt::Display for SyntaxError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid Lox code!")
-    }
-}
-
 pub struct Lox {
     had_error: bool,
-
-    interpreter: Interpreter
+    interpreter: Interpreter,
 }
 
 impl Lox {
     pub fn new() -> Self {
-        Lox { had_error: false, interpreter: Interpreter {  } }
+        Lox {
+            had_error: false,
+            interpreter: Interpreter::default()
+        }
     }
 
     pub fn error(&self, line: u64, message: &str) {
@@ -47,8 +38,8 @@ impl Lox {
                 break;
             }
             self.run(&line);
-            self.had_error = false;
             line.clear();
+            self.had_error = false;
         }
 
         Ok(())
@@ -59,7 +50,7 @@ impl Lox {
         self.run(&source);
 
         if self.had_error {
-            Err(SyntaxError.into())
+            Err(Error::Syntax.into())
         } else {
             Ok(())
         }
@@ -78,25 +69,15 @@ impl Lox {
         let mut scanner = Scanner::new(s.clone());
         let tokens = scanner.scan_tokens();
         let mut parser = Parser::new(tokens.clone());
-        let expression = parser.parse();
+        let statements = parser.parse();
 
-        if self.had_error {
-            return;
+        match statements.and_then(|statements| self.interpreter.interpret(&statements)) {
+            Ok(_) => {}
+            Err(err) => {
+                self.had_error = true;
+                println!("ERROR {}", err);
+                return;
+            }
         }
-
-        if let Some(expr) = expression {
-            self.interpreter.interpret(&expr);
-        }
-
-
-
-        // let a = AstPrinter{};
-        // println!("{}", a.print(&expression.unwrap()));
-
-
-
-        //for token in tokens {
-        //    println!("{}", token);
-        //}
     }
 }
