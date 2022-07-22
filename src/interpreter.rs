@@ -94,9 +94,16 @@ impl ExprVisitor<Literal> for Interpreter {
     }
 
     fn visit_variable_expr(&self, name: &Token) -> Result<Literal> {
-        println!("hit visit_variable_expr");
         self.environment.borrow().get(name)
-        // Err(Error::Runtime(format!("Not yet implemented")))
+    }
+
+    fn visit_variable_assignment_expr(&self, expr: &Expr) -> Result<Literal> {
+        if let Expr::Assign { name, value: expr } = expr {
+            let value = self.evaluate(expr)?;
+            self.environment.borrow_mut().assign(name, value)
+        } else {
+            Err(Error::Runtime(format!("Something is very wrong!")))
+        }
     }
 }
 
@@ -120,8 +127,6 @@ impl StmtVisitor<()> for Interpreter {
         if let Stmt::Expression(expr) = statement {
             match self.evaluate(expr) {
                 Ok(value) => {
-                    println!("{}", value);
-                    println!("nope!");
                     Ok(())
                 }
                 Err(err) => Err(err),

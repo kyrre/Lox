@@ -49,7 +49,6 @@ impl Parser {
     }
 
     fn var_declaration(&mut self) -> Result<Stmt> {
-
         let name = self.consume(IDENTIFIER, "Expect variable name.")?;
 
         let mut initializer: Option<Expr> = None;
@@ -60,11 +59,12 @@ impl Parser {
             None
         };
 
-
         self.consume(SEMICOLON, "Expect ';' after variable declaration")?;
 
-        Ok(Stmt::Variable{name:name, initializer: initializer})
-
+        Ok(Stmt::Variable {
+            name: name,
+            initializer: initializer,
+        })
     }
 
     fn statement(&mut self) -> Result<Stmt> {
@@ -91,7 +91,28 @@ impl Parser {
         expr.map(Stmt::Expression)
     }
     fn expression(&mut self) -> Result<Expr> {
-        self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<Expr> {
+        // assignment → IDENTIFIER "=" assignment | equality ;
+
+        let expr = self.equality();
+
+        if (self.matches(vec![EQUAL])) {
+            let equals = self.previous();
+            let value = self.assignment()?;
+            if let Ok(Expr::Variable { name }) = expr {
+                Ok(Expr::Assign {
+                    name,
+                    value: Box::new(value),
+                })
+            } else {
+                Err(Error::Runtime(format!("Invalid assignment target.")))
+            }
+        } else {
+            expr
+        }
     }
 
     fn equality(&mut self) -> Result<Expr> {
@@ -213,9 +234,10 @@ impl Parser {
             });
         }
         if self.matches(vec![IDENTIFIER]) {
-            return Ok(Expr::Variable { name: self.previous() })
+            return Ok(Expr::Variable {
+                name: self.previous(),
+            });
         }
-
 
         // println!("current token: {}", self.peek());
         eprintln!("Expected expression");

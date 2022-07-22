@@ -21,7 +21,11 @@ pub enum Expr {
     },
     Variable {
         name: Token
-    } 
+    }, 
+    Assign {
+        name: Token,
+        value: Box<Expr>
+    }
 }
 
 pub trait Visitor<T> {
@@ -31,6 +35,7 @@ pub trait Visitor<T> {
     fn visit_grouping_expr(&self, expr: &Expr) -> Result<T>;
     fn visit_literal_expr(&self, value: &Literal) -> Result<T>;
     fn visit_variable_expr(&self, name: &Token) -> Result<T>;
+    fn visit_variable_assignment_expr(&self, expr: &Expr) -> Result<T>;
 }
 
 impl Expr {
@@ -45,6 +50,7 @@ impl Expr {
             Expr::Grouping { expression } => visitor.visit_grouping_expr(expression),
             Expr::Literal { value } => visitor.visit_literal_expr(value),
             Expr::Variable { name } => visitor.visit_variable_expr(&name),
+            Expr::Assign { .. } => visitor.visit_variable_assignment_expr(&self)
 
         }
     }
@@ -100,5 +106,12 @@ impl Visitor<String> for AstPrinter {
     fn visit_variable_expr(&self, name: &Token) -> Result<String> {
         Ok(name.lexeme.clone())
     }
+    
+    fn visit_variable_assignment_expr(&self, expr: &Expr) -> Result<String> {
+        parenthesize(self, "+", &vec![expr])
+    }
+
+
+    
 
 }

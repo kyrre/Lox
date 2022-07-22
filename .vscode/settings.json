@@ -3,5 +3,6 @@
     "editor.fontLigatures": true,
     "editor.fontSize": 12,
     "editor.inlayHints.fontSize": 10,
-    "editor.codeLensFontFamily": ""
+    "editor.codeLensFontFamily": "",
+    "files.eol": "\n",
 }
