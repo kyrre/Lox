@@ -2,8 +2,9 @@
 use std::cell::RefCell;
 use std::f32::MIN;
 
+use std::rc::Rc;
 use crate::ast::{Expr, Visitor as ExprVisitor};
-use crate::environment::Environment;
+use crate::environment::{self, Environment};
 use crate::errors::{Error, Result};
 use crate::statement::{self, Stmt, Visitor as StmtVisitor};
 use crate::tokens::{Literal, Token, TokenType::*};
@@ -12,11 +13,12 @@ use Literal::{Boolean, None as Null, Number, String};
 
 #[derive(Default, Debug)]
 pub struct Interpreter {
-    environment: RefCell<Environment>,
+    // lets create multiple owners to 
+    environment: Rc<RefCell<Environment>>
 }
 
 impl Interpreter {
-    pub fn interpret(&self, statements: &Vec<Stmt>) -> Result<()> {
+    pub fn interpret(&mut self, statements: &Vec<Stmt>) -> Result<()> {
         statements
             .iter()
             .try_for_each(|statement| self.execute(statement))
@@ -34,8 +36,24 @@ impl Interpreter {
         }
     }
 
-    pub fn execute(&self, statement: &Stmt) -> Result<()> {
+    pub fn execute(&mut self, statement: &Stmt) -> Result<()> {
         statement.accept(self)
+    }
+
+    pub fn execute_block(
+        &mut self,
+        statements: &Vec<Stmt>,
+        environment: Rc<RefCell<Environment>>,
+    ) -> Result<()> {
+        
+        let previous = Rc::clone(&self.environment);
+        self.environment = environment;
+
+        let result = statements.iter().try_for_each(|statement| self.execute(statement));
+        self.environment = previous;
+        result?;
+
+        Ok(())
     }
 }
 
@@ -126,9 +144,7 @@ impl StmtVisitor<()> for Interpreter {
     fn visit_expression_statement(&self, statement: &Stmt) -> Result<()> {
         if let Stmt::Expression(expr) = statement {
             match self.evaluate(expr) {
-                Ok(value) => {
-                    Ok(())
-                }
+                Ok(value) => Ok(()),
                 Err(err) => Err(err),
             }
         } else {
@@ -151,4 +167,10 @@ impl StmtVisitor<()> for Interpreter {
             Err(Error::Runtime(format!("this should never happend")))
         }
     }
+
+    fn visit_block_statement(&mut self, statements: &Vec<Stmt>) -> Result<()> {
+        self.execute_block(
+            statements, 
+            Rc::new(RefCell::new(Environment::new(&self.environment)))); 
+        Ok(()) }
 }

@@ -110,8 +110,4 @@ impl Visitor<String> for AstPrinter {
     fn visit_variable_assignment_expr(&self, expr: &Expr) -> Result<String> {
         parenthesize(self, "+", &vec![expr])
     }
-
-
-    
-
 }

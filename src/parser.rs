@@ -74,9 +74,25 @@ impl Parser {
 
         if self.matches(vec![PRINT]) {
             self.print_statement()
+        } else if (self.matches(vec![LEFT_BRACE])) {
+            Ok(Stmt::Block {
+                statements: self.block()?,
+            })
         } else {
             self.expr_statement()
         }
+    }
+
+    fn block(&mut self) -> Result<Vec<Stmt>> {
+        let mut statements = Vec::new();
+
+        while !self.check(RIGHT_BRACE) && !self.is_at_end() {
+            statements.push(self.declaration()?)
+        }
+        
+        self.consume(RIGHT_BRACE, "Expect '}' after block.")?;
+
+        Ok(statements)
     }
 
     fn print_statement(&mut self) -> Result<Stmt> {
