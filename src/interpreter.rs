@@ -2,19 +2,22 @@
 use std::cell::RefCell;
 use std::f32::MIN;
 
-use std::rc::Rc;
 use crate::ast::{Expr, Visitor as ExprVisitor};
 use crate::environment::{self, Environment};
 use crate::errors::{Error, Result};
 use crate::statement::{self, Stmt, Visitor as StmtVisitor};
-use crate::tokens::{Literal, Token, TokenType::*};
+use crate::tokens::{
+    Literal, Token,
+    TokenType::{self, *},
+};
+use std::rc::Rc;
 
 use Literal::{Boolean, None as Null, Number, String};
 
 #[derive(Default, Debug)]
 pub struct Interpreter {
-    // lets create multiple owners to 
-    environment: Rc<RefCell<Environment>>
+    // lets create multiple owners to
+    environment: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
@@ -28,8 +31,8 @@ impl Interpreter {
         expr.accept(self)
     }
 
-    pub fn is_truthy(&self, literal: Literal) -> bool {
-        match literal {
+    pub fn is_truthy(&self, literal: &Literal) -> bool {
+        match *literal {
             Null => false,
             Boolean(value) => value,
             _ => false,
@@ -45,11 +48,12 @@ impl Interpreter {
         statements: &Vec<Stmt>,
         environment: Rc<RefCell<Environment>>,
     ) -> Result<()> {
-        
         let previous = Rc::clone(&self.environment);
         self.environment = environment;
 
-        let result = statements.iter().try_for_each(|statement| self.execute(statement));
+        let result = statements
+            .iter()
+            .try_for_each(|statement| self.execute(statement));
         self.environment = previous;
         result?;
 
@@ -96,7 +100,7 @@ impl ExprVisitor<Literal> for Interpreter {
                 "Tried to negate invalid operand {:?}",
                 right
             ))),
-            (BANG, _) => Ok(Boolean(self.is_truthy(right))),
+            (BANG, _) => Ok(Boolean(self.is_truthy(&right))),
             _ => Err(Error::Runtime(format!(
                 "Invalid unary expr: {:?} {:?}",
                 operator, right,
@@ -121,6 +125,34 @@ impl ExprVisitor<Literal> for Interpreter {
             self.environment.borrow_mut().assign(name, value)
         } else {
             Err(Error::Runtime(format!("Something is very wrong!")))
+        }
+    }
+
+
+
+    fn visit_logical_expr(&self, expr: &Expr) -> Result<Literal> {
+        if let Expr::Logical {
+            left,
+            operator,
+            right,
+        } = expr
+        {
+            let left = self.evaluate(left)?;
+            
+            // short-circuit logic
+            if operator.token_type == TokenType::OR {
+                if self.is_truthy(&left) {
+                    return Ok(left);
+                }
+            } else if !self.is_truthy(&left) {
+                return Ok(left);
+            }
+
+            return self.evaluate(right);
+        } else {
+            Err(Error::Runtime(format!(
+                "visit_logical_expr called for non Expr::Logical enum!"
+            )))
         }
     }
 }
@@ -170,7 +202,26 @@ impl StmtVisitor<()> for Interpreter {
 
     fn visit_block_statement(&mut self, statements: &Vec<Stmt>) -> Result<()> {
         self.execute_block(
-            statements, 
-            Rc::new(RefCell::new(Environment::new(&self.environment)))); 
-        Ok(()) }
+            statements,
+            Rc::new(RefCell::new(Environment::new(&self.environment))),
+        );
+        Ok(())
+    }
+
+    fn visit_if_statement(&mut self, statement: &Stmt) -> Result<()> {
+        if let Stmt::If {
+            condition,
+            else_branch,
+            then_branch,
+        } = statement
+        {
+            if self.is_truthy(&self.evaluate(condition)?) {
+                self.execute(then_branch);
+            } else if let Some(else_branch) = else_branch {
+                self.execute(&else_branch)?;
+            }
+        }
+
+        Ok(())
+    }
 }

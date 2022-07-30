@@ -13,6 +13,11 @@ pub enum Stmt {
     Block {
         statements: Vec<Stmt>,
     },
+    If {
+       condition: Expr,
+       then_branch: Box<Stmt>,
+       else_branch: Option<Box<Stmt>>
+    }
 }
 
 impl Stmt {
@@ -21,7 +26,8 @@ impl Stmt {
             Self::Print(_) => visitor.visit_print_statement(self),
             Self::Expression(_) => visitor.visit_expression_statement(self),
             Self::Variable { .. } => visitor.visit_variable_statement(self),
-            Self::Block{statements} =>  visitor.visit_block_statement(&statements)
+            Self::Block { statements } => visitor.visit_block_statement(&statements),
+            Self::If{..} => visitor.visit_if_statement(self)
         }
     }
 }
@@ -31,4 +37,5 @@ pub trait Visitor<T> {
     fn visit_expression_statement(&self, statement: &Stmt) -> Result<T>;
     fn visit_variable_statement(&self, statement: &Stmt) -> Result<T>;
     fn visit_block_statement(&mut self, statement: &Vec<Stmt>) -> Result<T>;
+    fn visit_if_statement(&mut self, statement: &Stmt) -> Result<T>;
 }

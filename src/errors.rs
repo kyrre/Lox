@@ -1,8 +1,8 @@
-use std::{fmt, error};
+use std::{error, fmt};
 
 #[derive(Debug, Clone)]
 pub enum Error {
-    Parse, 
+    Parse,
     Runtime(String),
     Syntax,
     Scanner,

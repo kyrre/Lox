@@ -69,7 +69,10 @@ impl Parser {
 
     fn statement(&mut self) -> Result<Stmt> {
         /*
-            statement -> exprStmt | printStmt ;
+            statement → exprStmt
+                | ifStmt
+                | printStmt
+                | block ;
         */
 
         if self.matches(vec![PRINT]) {
@@ -78,9 +81,31 @@ impl Parser {
             Ok(Stmt::Block {
                 statements: self.block()?,
             })
+        } else if (self.matches(vec![IF])) {
+            self.if_statement()
         } else {
             self.expr_statement()
         }
+    }
+
+    fn if_statement(&mut self) -> Result<Stmt> {
+        self.consume(LEFT_PAREN, "Exepect '(' after 'if'.")?;
+
+        let condition = self.expression()?;
+
+        self.consume(RIGHT_PAREN, "Expect ')' after if condition.")?;
+
+        let then_branch = Box::new(self.statement()?);
+        let else_branch = if self.matches(vec![ELSE]) {
+            Some(Box::new(self.statement()?))
+        } else {
+            None
+        };
+        Ok(Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+        })
     }
 
     fn block(&mut self) -> Result<Vec<Stmt>> {
@@ -89,7 +114,7 @@ impl Parser {
         while !self.check(RIGHT_BRACE) && !self.is_at_end() {
             statements.push(self.declaration()?)
         }
-        
+
         self.consume(RIGHT_BRACE, "Expect '}' after block.")?;
 
         Ok(statements)
@@ -113,7 +138,7 @@ impl Parser {
     fn assignment(&mut self) -> Result<Expr> {
         // assignment → IDENTIFIER "=" assignment | equality ;
 
-        let expr = self.equality();
+        let expr = self.or();
 
         if (self.matches(vec![EQUAL])) {
             let equals = self.previous();
@@ -129,6 +154,37 @@ impl Parser {
         } else {
             expr
         }
+    }
+
+    fn or(&mut self) -> Result<Expr> {
+        let mut expr = self.and()?;
+        while self.matches(vec![OR]) {
+            let operator = self.previous();
+            let right = self.and()?;
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                operator: operator,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    fn and(&mut self) -> Result<Expr> {
+        let mut expr = self.equality()?;
+
+        while self.matches(vec![AND]) {
+            let operator = self.previous();
+            let right = self.equality()?;
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                operator: operator,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self) -> Result<Expr> {

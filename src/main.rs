@@ -7,7 +7,6 @@ use rlox::lox::Lox;
 const EX_USAGE: i32 = 64;
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
-
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
 
