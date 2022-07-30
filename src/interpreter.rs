@@ -34,8 +34,8 @@ impl Interpreter {
     pub fn is_truthy(&self, literal: &Literal) -> bool {
         match *literal {
             Null => false,
-            Boolean(value) => value,
-            _ => false,
+            Boolean(false) => false,
+            _ => true,
         }
     }
 
@@ -128,8 +128,6 @@ impl ExprVisitor<Literal> for Interpreter {
         }
     }
 
-
-
     fn visit_logical_expr(&self, expr: &Expr) -> Result<Literal> {
         if let Expr::Logical {
             left,
@@ -138,7 +136,7 @@ impl ExprVisitor<Literal> for Interpreter {
         } = expr
         {
             let left = self.evaluate(left)?;
-            
+
             // short-circuit logic
             if operator.token_type == TokenType::OR {
                 if self.is_truthy(&left) {
@@ -219,6 +217,16 @@ impl StmtVisitor<()> for Interpreter {
                 self.execute(then_branch);
             } else if let Some(else_branch) = else_branch {
                 self.execute(&else_branch)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn visit_while_statement(&mut self, statement: &Stmt) -> Result<()> {
+        if let Stmt::While { condition, body } = statement {
+            while (self.is_truthy(&self.evaluate(condition)?)) {
+                self.execute(body)?;
             }
         }
 

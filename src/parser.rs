@@ -68,15 +68,12 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt> {
-        /*
-            statement → exprStmt
-                | ifStmt
-                | printStmt
-                | block ;
-        */
-
         if self.matches(vec![PRINT]) {
             self.print_statement()
+        } else if self.matches(vec![WHILE]) {
+            self.while_statement()
+        } else if self.matches(vec![FOR]) {
+            self.for_statement()
         } else if (self.matches(vec![LEFT_BRACE])) {
             Ok(Stmt::Block {
                 statements: self.block()?,
@@ -86,6 +83,76 @@ impl Parser {
         } else {
             self.expr_statement()
         }
+    }
+
+    fn while_statement(&mut self) -> Result<Stmt> {
+        self.consume(LEFT_PAREN, "Expect '(' after 'while'.")?;
+        let condition = self.expression()?;
+        self.consume(RIGHT_PAREN, "Expect ')' after condition.")?;
+
+        let body = self.statement()?;
+
+        Ok(Stmt::While {
+            condition,
+            body: Box::new(body),
+        })
+    }
+
+    fn for_statement(&mut self) -> Result<Stmt> {
+        self.consume(LEFT_PAREN, "Expect a '(' after 'for.'")?;
+
+        let mut initializer = None;
+
+        if self.matches(vec![SEMICOLON]) {
+            initializer = None;
+        } else if self.matches(vec![VAR]) {
+            initializer = Some(self.var_declaration()?);
+        } else {
+            initializer = Some(self.expr_statement()?);
+        }
+
+        let mut condition = None;
+
+        if !self.check(SEMICOLON) {
+            condition = Some(self.expression()?);
+        }
+
+        self.consume(SEMICOLON, "Expet ';' after loop condition.");
+
+        let mut increment = None;
+        if !self.check(RIGHT_PAREN) {
+            increment = Some(self.expression()?);
+        }
+
+        self.consume(RIGHT_PAREN, "Expect ')' after for clauses.")?;
+
+        let mut body = self.statement();
+
+        if let Some(increment) = increment {
+            body = Ok(Stmt::Block {
+                statements: vec![body?, Stmt::Expression(increment)],
+            });
+        }
+
+        if let None = condition {
+            condition = Some(Expr::Literal {
+                value: Literal::Boolean(true),
+            });
+        }
+
+        if let Some(condition) = condition {
+            body = Ok(Stmt::While {
+                condition,
+                body: Box::new(body?),
+            });
+        }
+
+
+        if let Some(initializer) = initializer {
+            body = Ok(Stmt::Block{statements: vec![initializer, body?]});
+        }
+
+        body
     }
 
     fn if_statement(&mut self) -> Result<Stmt> {
