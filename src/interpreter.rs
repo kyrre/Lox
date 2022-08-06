@@ -1,10 +1,13 @@
 #![allow(dead_code, unused, non_camel_case_types, non_snake_case)]
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::default;
 use std::f32::MIN;
 
 use crate::ast::{Expr, Visitor as ExprVisitor};
 use crate::environment::{self, Environment};
 use crate::errors::{Error, Result};
+use crate::function::Function;
 use crate::statement::{self, Stmt, Visitor as StmtVisitor};
 use crate::tokens::{
     Literal, Token,
@@ -14,13 +17,33 @@ use std::rc::Rc;
 
 use Literal::{Boolean, None as Null, Number, String};
 
+fn clock_fun(args: Vec<Literal>) -> Literal {
+    Literal::Number(10.0)
+}
+
 #[derive(Default, Debug)]
 pub struct Interpreter {
-    // lets create multiple owners to
+    globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
+    pub fn new() -> Self {
+        let globals: Rc<RefCell<Environment>> = Default::default();
+        let environment = Rc::clone(&globals);
+
+        let clock = Literal::Callable(Function::Native {
+            body: Box::new(clock_fun),
+            arity: 0
+        });
+
+        globals.borrow_mut().define("clock".to_string(), clock);
+
+        Interpreter {
+            globals,
+            environment,
+        }
+    }
     pub fn interpret(&mut self, statements: &Vec<Stmt>) -> Result<()> {
         statements
             .iter()
@@ -123,6 +146,41 @@ impl ExprVisitor<Literal> for Interpreter {
         if let Expr::Assign { name, value: expr } = expr {
             let value = self.evaluate(expr)?;
             self.environment.borrow_mut().assign(name, value)
+        } else {
+            Err(Error::Runtime(format!("Something is very wrong!")))
+        }
+    }
+
+    fn visit_call_expr(&self, expr: &Expr) -> Result<Literal> {
+        if let Expr::Call {
+            callee,
+            paren,
+            arguments,
+        } = expr
+        {
+            let callee = self.evaluate(callee)?;
+            let arguments = arguments
+                .iter()
+                .map(|x| self.evaluate(x))
+                .collect::<Result<Vec<Literal>>>()?;
+
+            if let Literal::Callable(func) = callee {
+                if arguments.len() != func.arity() {
+                    Err(Error::Runtime(format!(
+                        "{:?} Expected {} arguments but got {}.",
+                        paren,
+                        func.arity(),
+                        arguments.len()
+                    )))
+                } else {
+                    func.call(arguments)
+                }
+            } else {
+                Err(Error::Runtime(format!(
+                    "{:?} Call only call functions and classes.",
+                    paren
+                )))
+            }
         } else {
             Err(Error::Runtime(format!("Something is very wrong!")))
         }
@@ -231,5 +289,10 @@ impl StmtVisitor<()> for Interpreter {
         }
 
         Ok(())
+    }
+
+    fn visit_function_statement(&mut self, statement: &Stmt) -> Result<()> {
+        // todo
+       Ok(()) 
     }
 }

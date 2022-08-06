@@ -1,5 +1,6 @@
 #![allow(dead_code, unused)]
 use std::fmt;
+use crate::function::Function;
 
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Literal {
@@ -7,6 +8,7 @@ pub enum Literal {
     Number(f64),
     Char(char),
     Boolean(bool),
+    Callable(Function),
     None,
 }
 
@@ -18,6 +20,7 @@ impl fmt::Display for Literal {
             Literal::String(value) => write!(f, "{}", value),
             Literal::Boolean(value) => write!(f, "{}", value),
             Literal::None => write!(f, "null"),
+            Literal::Callable(func) => write!(f, "{:?}", func)
         }
     }
 }

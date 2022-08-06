@@ -32,10 +32,14 @@ impl Parser {
     fn declaration(&mut self) -> Result<Stmt> {
         // varDecl  → "var" IDENTIFIER ( "=" expression )? ";" ;
 
-        let res = if self.matches(vec![VAR]) {
-            self.var_declaration()
-        } else {
-            self.statement()
+        let res = {
+            if self.matches(vec![FUN]) {
+                self.function("function")
+            } else if self.matches(vec![VAR]) {
+                self.var_declaration()
+            } else {
+                self.statement()
+            }
         };
 
         if res.is_err() {
@@ -46,6 +50,36 @@ impl Parser {
         } else {
             res
         }
+    }
+
+    fn function(&mut self, kind: &str) -> Result<Stmt> {
+        let name = self.consume(IDENTIFIER, &format!("Expect {} name.", kind))?;
+
+        self.consume(LEFT_PAREN, &format!("Expect '(' after {} name.", kind))?;
+
+        let mut parameters = Vec::new();
+        if !self.check(RIGHT_PAREN) {
+            loop {
+                if parameters.len() >= 255 {
+                    return Err(Error::Runtime(format!(
+                        "{:?} Can't have more than 255 parameters.",
+                        self.peek()
+                    )));
+                }
+
+                parameters.push(self.consume(IDENTIFIER, "Expect parameter name.")?);
+
+                if !self.matches(vec![COMMA]) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(RIGHT_PAREN, "Expect ')' after parameters.")?;
+        self.consume(LEFT_BRACE, &format!("Expect '{{' before {} body.", kind))?;
+        let body = self.block()?;
+
+        Ok(Stmt::Function { name,  params: parameters, body })
     }
 
     fn var_declaration(&mut self) -> Result<Stmt> {
@@ -147,9 +181,10 @@ impl Parser {
             });
         }
 
-
         if let Some(initializer) = initializer {
-            body = Ok(Stmt::Block{statements: vec![initializer, body?]});
+            body = Ok(Stmt::Block {
+                statements: vec![initializer, body?],
+            });
         }
 
         body
@@ -338,8 +373,50 @@ impl Parser {
                 right: Box::new(right),
             })
         } else {
-            self.primary()
+            self.call()
         }
+    }
+
+    fn call(&mut self) -> Result<Expr> {
+        let mut expr = self.primary();
+
+        loop {
+            if self.matches(vec![LEFT_PAREN]) {
+                expr = self.finish_call(expr?);
+            } else {
+                break;
+            }
+        }
+
+        expr
+    }
+
+    fn finish_call(&mut self, callee: Expr) -> Result<Expr> {
+        let mut arguments: Vec<Expr> = Vec::new();
+
+        if !self.check(RIGHT_PAREN) {
+            loop {
+                if arguments.len() >= 255 {
+                    return Err(Error::Runtime(format!(
+                        "{:?} Can't have more than 255 arguments.",
+                        self.peek()
+                    )));
+                }
+
+                arguments.push(self.expression()?);
+                if !self.matches(vec![COMMA]) {
+                    break;
+                }
+            }
+        }
+
+        let paren = self.consume(RIGHT_PAREN, "Expect ')' after arguments.")?;
+
+        Ok(Expr::Call {
+            callee: Box::new(callee),
+            paren,
+            arguments,
+        })
     }
 
     fn primary(&mut self) -> Result<Expr> {

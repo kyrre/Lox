@@ -18,7 +18,7 @@ impl Lox {
     pub fn new() -> Self {
         Lox {
             had_error: false,
-            interpreter: Interpreter::default(),
+            interpreter: Interpreter::new(),
         }
     }
 

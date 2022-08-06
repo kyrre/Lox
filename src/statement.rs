@@ -21,6 +21,11 @@ pub enum Stmt {
     While {
         condition: Expr,
         body: Box<Stmt>
+    },
+    Function {
+        name: Token,
+        params: Vec<Token>,
+        body: Vec<Stmt>
     }
 }
 
@@ -32,7 +37,8 @@ impl Stmt {
             Self::Variable { .. } => visitor.visit_variable_statement(self),
             Self::Block { statements } => visitor.visit_block_statement(&statements),
             Self::If{..} => visitor.visit_if_statement(self),
-            Self::While {..} => visitor.visit_while_statement(self)
+            Self::While {..} => visitor.visit_while_statement(self),
+            Self::Function { name, params, body } => visitor.visit_function_statement(self)
         }
     }
 }
@@ -44,5 +50,7 @@ pub trait Visitor<T> {
     fn visit_block_statement(&mut self, statement: &Vec<Stmt>) -> Result<T>;
     fn visit_if_statement(&mut self, statement: &Stmt) -> Result<T>;
     fn visit_while_statement(&mut self, statement: &Stmt) -> Result<T>;
+    fn visit_function_statement(&mut self, statement: &Stmt) -> Result<T>;
+
 
 }

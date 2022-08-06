@@ -30,6 +30,11 @@ pub enum Expr {
         operator: Token,
         right: Box<Expr>
 
+    },
+    Call {
+        callee: Box<Expr>,
+        paren: Token,
+        arguments: Vec<Expr>
     }
 }
 
@@ -41,6 +46,7 @@ pub trait Visitor<T> {
     fn visit_variable_expr(&self, name: &Token) -> Result<T>;
     fn visit_variable_assignment_expr(&self, expr: &Expr) -> Result<T>;
     fn visit_logical_expr(&self, expr: &Expr) -> Result<T>;
+    fn visit_call_expr(&self, expr: &Expr) -> Result<T>;
 
 }
 
@@ -57,7 +63,8 @@ impl Expr {
             Expr::Literal { value } => visitor.visit_literal_expr(value),
             Expr::Variable { name } => visitor.visit_variable_expr(&name),
             Expr::Assign { .. } => visitor.visit_variable_assignment_expr(&self),
-            Expr::Logical{..} => visitor.visit_logical_expr(self)
+            Expr::Logical{..} => visitor.visit_logical_expr(self),
+            Expr::Call { .. } => visitor.visit_call_expr(self)
         }
     }
 }
