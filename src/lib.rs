@@ -8,3 +8,5 @@ pub mod scanner;
 pub mod statement;
 pub mod tokens;
 pub mod function;
+pub mod object;
+pub mod resolver;

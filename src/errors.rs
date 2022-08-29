@@ -1,4 +1,5 @@
 use std::{error, fmt};
+use crate::object::Object;
 
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -6,6 +7,7 @@ pub enum Error {
     Runtime(String),
     Syntax,
     Scanner,
+    Return{value: Object}
 }
 
 impl error::Error for Error {}

@@ -8,23 +8,27 @@ use crate::ast::{Expr, Visitor as ExprVisitor};
 use crate::environment::{self, Environment};
 use crate::errors::{Error, Result};
 use crate::function::Function;
+use crate::object::Object;
 use crate::statement::{self, Stmt, Visitor as StmtVisitor};
 use crate::tokens::{
     Literal, Token,
     TokenType::{self, *},
 };
+use crate::resolver::Resolver;
+
 use std::rc::Rc;
 
-use Literal::{Boolean, None as Null, Number, String};
+use Object::{Boolean, None as Null, Number, String};
 
-fn clock_fun(args: Vec<Literal>) -> Literal {
-    Literal::Number(10.0)
+fn clock_fun(args: Vec<Object>) -> Object {
+    Object::Number(10.0)
 }
 
 #[derive(Default, Debug)]
 pub struct Interpreter {
-    globals: Rc<RefCell<Environment>>,
-    environment: Rc<RefCell<Environment>>,
+    pub globals: Rc<RefCell<Environment>>,
+    pub environment: Rc<RefCell<Environment>>,
+    pub locals: HashMap<Token, usize>
 }
 
 impl Interpreter {
@@ -32,9 +36,9 @@ impl Interpreter {
         let globals: Rc<RefCell<Environment>> = Default::default();
         let environment = Rc::clone(&globals);
 
-        let clock = Literal::Callable(Function::Native {
+        let clock = Object::Callable(Function::Native {
             body: Box::new(clock_fun),
-            arity: 0
+            arity: 0,
         });
 
         globals.borrow_mut().define("clock".to_string(), clock);
@@ -42,6 +46,7 @@ impl Interpreter {
         Interpreter {
             globals,
             environment,
+            locals: HashMap::default()
         }
     }
     pub fn interpret(&mut self, statements: &Vec<Stmt>) -> Result<()> {
@@ -50,11 +55,11 @@ impl Interpreter {
             .try_for_each(|statement| self.execute(statement))
     }
 
-    pub fn evaluate(&self, expr: &Expr) -> Result<Literal> {
+    pub fn evaluate(&mut self, expr: &Expr) -> Result<Object> {
         expr.accept(self)
     }
 
-    pub fn is_truthy(&self, literal: &Literal) -> bool {
+    pub fn is_truthy(&self, literal: &Object) -> bool {
         match *literal {
             Null => false,
             Boolean(false) => false,
@@ -64,6 +69,10 @@ impl Interpreter {
 
     pub fn execute(&mut self, statement: &Stmt) -> Result<()> {
         statement.accept(self)
+    }
+
+    pub fn resolve(&mut self, name: &Token, i: usize) {
+        self.locals.insert(name.clone(), i);
     }
 
     pub fn execute_block(
@@ -82,10 +91,23 @@ impl Interpreter {
 
         Ok(())
     }
+
+    fn lookup_variable(&mut self, name: &Token) -> Result<Object> {
+        let distance = self.locals.get(name);
+
+        if let Some(distance) = distance {
+            self.environment.borrow().get(name)
+        } else {
+            self.globals.borrow().get(name)
+        }
+
+    }
+
+
 }
 
-impl ExprVisitor<Literal> for Interpreter {
-    fn visit_binary_expr(&self, left: &Expr, operator: &Token, right: &Expr) -> Result<Literal> {
+impl ExprVisitor<Object> for Interpreter {
+    fn visit_binary_expr(&mut self, left: &Expr, operator: &Token, right: &Expr) -> Result<Object> {
         let left = self.evaluate(left)?;
         let right = self.evaluate(right)?;
 
@@ -114,7 +136,7 @@ impl ExprVisitor<Literal> for Interpreter {
         }
     }
 
-    fn visit_unary_expr(&self, operator: &Token, right: &Expr) -> Result<Literal> {
+    fn visit_unary_expr(&mut self, operator: &Token, right: &Expr) -> Result<Object> {
         let right = self.evaluate(right)?;
 
         match (&operator.token_type, &right) {
@@ -130,19 +152,25 @@ impl ExprVisitor<Literal> for Interpreter {
             ))),
         }
     }
-    fn visit_grouping_expr(&self, expr: &Expr) -> Result<Literal> {
+    fn visit_grouping_expr(&mut self, expr: &Expr) -> Result<Object> {
         self.evaluate(expr)
     }
 
-    fn visit_literal_expr(&self, value: &Literal) -> Result<Literal> {
-        Ok(value.clone())
+    fn visit_literal_expr(&mut self, value: &Literal) -> Result<Object> {
+        match value {
+            Literal::Boolean(b) => Ok(Object::Boolean(*b)),
+            Literal::None => Ok(Object::None),
+            Literal::Number(n) => Ok(Object::Number(*n)),
+            Literal::String(s) => Ok(Object::String(s.clone())),
+        }
     }
 
-    fn visit_variable_expr(&self, name: &Token) -> Result<Literal> {
-        self.environment.borrow().get(name)
+    fn visit_variable_expr(&mut self, name: &Token) -> Result<Object> {
+        self.lookup_variable(name)
     }
 
-    fn visit_variable_assignment_expr(&self, expr: &Expr) -> Result<Literal> {
+
+    fn visit_variable_assignment_expr(&mut self, expr: &Expr) -> Result<Object> {
         if let Expr::Assign { name, value: expr } = expr {
             let value = self.evaluate(expr)?;
             self.environment.borrow_mut().assign(name, value)
@@ -151,7 +179,7 @@ impl ExprVisitor<Literal> for Interpreter {
         }
     }
 
-    fn visit_call_expr(&self, expr: &Expr) -> Result<Literal> {
+    fn visit_call_expr(&mut self, expr: &Expr) -> Result<Object> {
         if let Expr::Call {
             callee,
             paren,
@@ -162,9 +190,9 @@ impl ExprVisitor<Literal> for Interpreter {
             let arguments = arguments
                 .iter()
                 .map(|x| self.evaluate(x))
-                .collect::<Result<Vec<Literal>>>()?;
+                .collect::<Result<Vec<Object>>>()?;
 
-            if let Literal::Callable(func) = callee {
+            if let Object::Callable(func) = callee {
                 if arguments.len() != func.arity() {
                     Err(Error::Runtime(format!(
                         "{:?} Expected {} arguments but got {}.",
@@ -173,7 +201,7 @@ impl ExprVisitor<Literal> for Interpreter {
                         arguments.len()
                     )))
                 } else {
-                    func.call(arguments)
+                    func.call(self, arguments)
                 }
             } else {
                 Err(Error::Runtime(format!(
@@ -186,7 +214,7 @@ impl ExprVisitor<Literal> for Interpreter {
         }
     }
 
-    fn visit_logical_expr(&self, expr: &Expr) -> Result<Literal> {
+    fn visit_logical_expr(&mut self, expr: &Expr) -> Result<Object> {
         if let Expr::Logical {
             left,
             operator,
@@ -214,7 +242,7 @@ impl ExprVisitor<Literal> for Interpreter {
 }
 
 impl StmtVisitor<()> for Interpreter {
-    fn visit_print_statement(&self, statement: &Stmt) -> Result<()> {
+    fn visit_print_statement(&mut self, statement: &Stmt) -> Result<()> {
         if let Stmt::Print(expr) = statement {
             match self.evaluate(expr) {
                 Ok(value) => {
@@ -229,7 +257,7 @@ impl StmtVisitor<()> for Interpreter {
         }
     }
 
-    fn visit_expression_statement(&self, statement: &Stmt) -> Result<()> {
+    fn visit_expression_statement(&mut self, statement: &Stmt) -> Result<()> {
         if let Stmt::Expression(expr) = statement {
             match self.evaluate(expr) {
                 Ok(value) => Ok(()),
@@ -241,11 +269,11 @@ impl StmtVisitor<()> for Interpreter {
         }
     }
 
-    fn visit_variable_statement(&self, statement: &Stmt) -> Result<()> {
+    fn visit_variable_statement(&mut self, statement: &Stmt) -> Result<()> {
         if let Stmt::Variable { name, initializer } = statement {
             initializer
                 .as_ref()
-                .map_or(Ok(Literal::None), |init| self.evaluate(init))
+                .map_or(Ok(Object::None), |init| self.evaluate(init))
                 .map(|value| {
                     self.environment
                         .borrow_mut()
@@ -271,8 +299,9 @@ impl StmtVisitor<()> for Interpreter {
             then_branch,
         } = statement
         {
-            if self.is_truthy(&self.evaluate(condition)?) {
-                self.execute(then_branch);
+            let value = self.evaluate(condition)?;
+            if self.is_truthy(&value) {
+                self.execute(then_branch)?;
             } else if let Some(else_branch) = else_branch {
                 self.execute(&else_branch)?;
             }
@@ -283,8 +312,10 @@ impl StmtVisitor<()> for Interpreter {
 
     fn visit_while_statement(&mut self, statement: &Stmt) -> Result<()> {
         if let Stmt::While { condition, body } = statement {
-            while (self.is_truthy(&self.evaluate(condition)?)) {
+            let mut value = self.evaluate(condition)?;
+            while self.is_truthy(&value) {
                 self.execute(body)?;
+                value = self.evaluate(condition)?;
             }
         }
 
@@ -292,7 +323,35 @@ impl StmtVisitor<()> for Interpreter {
     }
 
     fn visit_function_statement(&mut self, statement: &Stmt) -> Result<()> {
-        // todo
-       Ok(()) 
+        if let Stmt::Function { name, params, body } = statement {
+            let function = Object::Callable(Function::User {
+                name: name.clone(),
+                params: params.clone(),
+                body: body.clone(),
+                closure: Rc::clone(&self.environment)
+                // i guess we need the closure here <_<
+            });
+            self.environment
+                .borrow_mut()
+                .define(name.lexeme.clone(), function);
+        }
+        Ok(())
+    }
+
+    fn visit_return_statement(&mut self, statement: &Stmt) -> Result<()> {
+
+        // println!("Hit Return statement");
+        // println!("statement = {:?}", statement);
+        if let Stmt::Return { keyword, value } = statement {
+            let mut return_value = Object::None;
+            if let Some(value) = value {
+                return_value = self.evaluate(value)?;
+            }
+            Err(Error::Return {
+                value: return_value,
+            })
+        } else {
+            Err(Error::Runtime(format!("this should never happend")))
+        }
     }
 }

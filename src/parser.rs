@@ -53,6 +53,7 @@ impl Parser {
     }
 
     fn function(&mut self, kind: &str) -> Result<Stmt> {
+        println!("inside function()");
         let name = self.consume(IDENTIFIER, &format!("Expect {} name.", kind))?;
 
         self.consume(LEFT_PAREN, &format!("Expect '(' after {} name.", kind))?;
@@ -79,7 +80,11 @@ impl Parser {
         self.consume(LEFT_BRACE, &format!("Expect '{{' before {} body.", kind))?;
         let body = self.block()?;
 
-        Ok(Stmt::Function { name,  params: parameters, body })
+        Ok(Stmt::Function {
+            name,
+            params: parameters,
+            body,
+        })
     }
 
     fn var_declaration(&mut self) -> Result<Stmt> {
@@ -104,6 +109,8 @@ impl Parser {
     fn statement(&mut self) -> Result<Stmt> {
         if self.matches(vec![PRINT]) {
             self.print_statement()
+        } else if self.matches(vec![RETURN]) {
+            self.return_statement()
         } else if self.matches(vec![WHILE]) {
             self.while_statement()
         } else if self.matches(vec![FOR]) {
@@ -117,6 +124,19 @@ impl Parser {
         } else {
             self.expr_statement()
         }
+    }
+
+    fn return_statement(&mut self) -> Result<Stmt> {
+        let keyword = self.previous();
+
+        let mut value = None;
+        if !self.check(SEMICOLON) {
+            value = Some(self.expression()?);
+        }
+
+        self.consume(SEMICOLON, "Expect ';' after return value.")?;
+
+        Ok(Stmt::Return { keyword, value })
     }
 
     fn while_statement(&mut self) -> Result<Stmt> {

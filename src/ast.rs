@@ -1,7 +1,7 @@
 use crate::errors::Result;
 use crate::tokens::{Literal, Token};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,
@@ -35,23 +35,23 @@ pub enum Expr {
         callee: Box<Expr>,
         paren: Token,
         arguments: Vec<Expr>
-    }
+    }    
 }
 
 pub trait Visitor<T> {
-    fn visit_binary_expr(&self, left: &Expr, operator: &Token, right: &Expr) -> Result<T>;
-    fn visit_unary_expr(&self, operator: &Token, right: &Expr) -> Result<T>;
-    fn visit_grouping_expr(&self, expr: &Expr) -> Result<T>;
-    fn visit_literal_expr(&self, value: &Literal) -> Result<T>;
-    fn visit_variable_expr(&self, name: &Token) -> Result<T>;
-    fn visit_variable_assignment_expr(&self, expr: &Expr) -> Result<T>;
-    fn visit_logical_expr(&self, expr: &Expr) -> Result<T>;
-    fn visit_call_expr(&self, expr: &Expr) -> Result<T>;
+    fn visit_binary_expr(&mut self, left: &Expr, operator: &Token, right: &Expr) -> Result<T>;
+    fn visit_unary_expr(&mut self, operator: &Token, right: &Expr) -> Result<T>;
+    fn visit_grouping_expr(&mut self, expr: &Expr) -> Result<T>;
+    fn visit_literal_expr(&mut self, value: &Literal) -> Result<T>;
+    fn visit_variable_expr(&mut self, name: &Token) -> Result<T>;
+    fn visit_variable_assignment_expr(&mut self, expr: &Expr) -> Result<T>;
+    fn visit_logical_expr(&mut self, expr: &Expr) -> Result<T>;
+    fn visit_call_expr(&mut self, expr: &Expr) -> Result<T>;
 
 }
 
 impl Expr {
-    pub fn accept<T>(&self, visitor: &dyn Visitor<T>) -> Result<T> {
+    pub fn accept<T>(&self, visitor: &mut dyn Visitor<T>) -> Result<T> {
         match self {
             Expr::Binary {
                 left,

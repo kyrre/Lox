@@ -1,8 +1,9 @@
 use crate::ast::Expr;
 use crate::errors::Result;
 use crate::tokens::Token;
+use crate::object::Object;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Stmt {
     Print(Expr),
     Expression(Expr),
@@ -26,6 +27,10 @@ pub enum Stmt {
         name: Token,
         params: Vec<Token>,
         body: Vec<Stmt>
+    },
+    Return {
+        keyword: Token,
+        value: Option<Expr>
     }
 }
 
@@ -38,19 +43,20 @@ impl Stmt {
             Self::Block { statements } => visitor.visit_block_statement(&statements),
             Self::If{..} => visitor.visit_if_statement(self),
             Self::While {..} => visitor.visit_while_statement(self),
-            Self::Function { name, params, body } => visitor.visit_function_statement(self)
+            Self::Function { name, params, body } => visitor.visit_function_statement(self),
+            Self::Return { keyword, value } => visitor.visit_return_statement(self)
+
         }
     }
 }
 
 pub trait Visitor<T> {
-    fn visit_print_statement(&self, statement: &Stmt) -> Result<T>;
-    fn visit_expression_statement(&self, statement: &Stmt) -> Result<T>;
-    fn visit_variable_statement(&self, statement: &Stmt) -> Result<T>;
+    fn visit_print_statement(&mut self, statement: &Stmt) -> Result<T>;
+    fn visit_expression_statement(&mut self, statement: &Stmt) -> Result<T>;
+    fn visit_variable_statement(&mut self, statement: &Stmt) -> Result<T>;
     fn visit_block_statement(&mut self, statement: &Vec<Stmt>) -> Result<T>;
     fn visit_if_statement(&mut self, statement: &Stmt) -> Result<T>;
     fn visit_while_statement(&mut self, statement: &Stmt) -> Result<T>;
     fn visit_function_statement(&mut self, statement: &Stmt) -> Result<T>;
-
-
+    fn visit_return_statement(&mut self, statement: &Stmt) -> Result<T>;
 }

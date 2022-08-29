@@ -1,14 +1,14 @@
 #![allow(dead_code, unused)]
 use std::fmt;
+use std::hash::{Hash, Hasher};
+
 use crate::function::Function;
 
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Literal {
     String(String),
     Number(f64),
-    Char(char),
     Boolean(bool),
-    Callable(Function),
     None,
 }
 
@@ -16,11 +16,9 @@ impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Literal::Number(value) => write!(f, "{}", value),
-            Literal::Char(value) => write!(f, "{}", value),
             Literal::String(value) => write!(f, "{}", value),
             Literal::Boolean(value) => write!(f, "{}", value),
             Literal::None => write!(f, "null"),
-            Literal::Callable(func) => write!(f, "{:?}", func)
         }
     }
 }
@@ -31,7 +29,7 @@ impl fmt::Display for Literal {
 //    }
 //}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
@@ -47,6 +45,15 @@ impl Token {
             literal,
             line,
         }
+    }
+}
+
+impl Eq for Token {}
+
+impl Hash for Token {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.lexeme.hash(state);
+        self.line.hash(state);
     }
 }
 impl fmt::Display for Token {
