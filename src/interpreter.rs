@@ -173,7 +173,11 @@ impl ExprVisitor<Object> for Interpreter {
     fn visit_variable_assignment_expr(&mut self, expr: &Expr) -> Result<Object> {
         if let Expr::Assign { name, value: expr } = expr {
             let value = self.evaluate(expr)?;
-            self.environment.borrow_mut().assign(name, value)
+            if let Some(distance) = self.locals.get(name) {
+                self.environment.borrow_mut().assign_at(distance.clone(), name, value)
+            } else {
+                self.globals.borrow_mut().assign(name, value)
+            }
         } else {
             Err(Error::Runtime(format!("Something is very wrong!")))
         }

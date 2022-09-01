@@ -22,7 +22,7 @@ impl<'a> Resolver<'a> {
     fn begin_scope(&mut self) {
         self.scopes.push(HashMap::default());
     }
-    fn resolve_statements(&mut self, statements: &Vec<Stmt>) -> Result<()> {
+    pub fn resolve_statements(&mut self, statements: &Vec<Stmt>) -> Result<()> {
         for statement in statements.iter() {
             self.resolve_statement(statement)?;
         }

@@ -140,6 +140,8 @@ impl Parser {
     }
 
     fn while_statement(&mut self) -> Result<Stmt> {
+
+        println!("while statement");
         self.consume(LEFT_PAREN, "Expect '(' after 'while'.")?;
         let condition = self.expression()?;
         self.consume(RIGHT_PAREN, "Expect ')' after condition.")?;
@@ -153,6 +155,8 @@ impl Parser {
     }
 
     fn for_statement(&mut self) -> Result<Stmt> {
+
+        println!("inside for_statement");
         self.consume(LEFT_PAREN, "Expect a '(' after 'for.'")?;
 
         let mut initializer = None;
@@ -171,7 +175,7 @@ impl Parser {
             condition = Some(self.expression()?);
         }
 
-        self.consume(SEMICOLON, "Expet ';' after loop condition.");
+        self.consume(SEMICOLON, "Expect ';' after loop condition.");
 
         let mut increment = None;
         if !self.check(RIGHT_PAREN) {
@@ -206,6 +210,8 @@ impl Parser {
                 statements: vec![initializer, body?],
             });
         }
+
+        // println(!)
 
         body
     }

@@ -3,7 +3,6 @@ use crate::object::Object;
 use crate::tokens::Token;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::env;
 use std::rc::Rc;
 
 #[derive(Default, Debug, Clone)]
@@ -61,8 +60,20 @@ impl Environment {
         }
               
         value.ok_or(Error::Runtime(format!("Undefined variable {}", name.lexeme)))
+    }
 
+    pub fn assign_at(&mut self, distance: usize, name: &Token, value: Object) -> Result<Object> {
 
+        let name = &name.lexeme;
+        let v = value.clone();
+
+        if distance > 0 {
+            self.ancestor(distance).borrow_mut().values.insert(name.clone(), value);
+        } else {
+            self.values.insert(name.clone(), value);
+        }
+
+        Ok(v)
     }
 
     fn ancestor(&mut self, distance: usize) -> Rc<RefCell<Environment>> {
@@ -70,7 +81,7 @@ impl Environment {
         let mut environment = Rc::clone(&self.enclosing.clone().unwrap());
 
         // traverese
-        for i in 1..distance {
+        for _i in 1..distance {
             let parent = environment.borrow().enclosing.clone().unwrap();
             environment = Rc::clone(&parent);
         }

@@ -4,6 +4,7 @@ use std::path::Path;
 use crate::errors::Error;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
+use crate::resolver::Resolver;
 use crate::scanner::Scanner;
 use crate::tokens::Token;
 
@@ -71,7 +72,11 @@ impl Lox {
         let mut parser = Parser::new(tokens.clone());
         let statements = parser.parse();
 
-        match statements.and_then(|statements| self.interpreter.interpret(&statements)) {
+        match statements.and_then(|statements| {
+            let mut resolver = Resolver::new(&mut self.interpreter);
+            resolver.resolve_statements(&statements);
+            self.interpreter.interpret(&statements)
+        }) {
             Ok(_) => {}
             Err(err) => {
                 self.had_error = true;
