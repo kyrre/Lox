@@ -74,7 +74,7 @@ impl Lox {
 
         match statements.and_then(|statements| {
             let mut resolver = Resolver::new(&mut self.interpreter);
-            resolver.resolve_statements(&statements);
+            resolver.resolve_statements(&statements)?;
             self.interpreter.interpret(&statements)
         }) {
             Ok(_) => {}

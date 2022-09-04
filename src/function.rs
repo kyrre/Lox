@@ -30,7 +30,7 @@ impl Function {
     pub fn call(&self, 
         interpreter: &mut Interpreter, 
         arguments: Vec<Object>) -> Result<Object> {
-        match self {
+        let res = match self {
             Function::Native { body, ..}  => Ok(body(arguments)),
             Function::User { params, body, closure , ..} => {
 
@@ -45,7 +45,11 @@ impl Function {
                     Ok(..) => Ok(Object::None)
                 }
             }
-        }
+        };
+
+        println!("call - result = {:?}", res);
+
+        res
     }
 
     pub fn arity(&self) -> usize {

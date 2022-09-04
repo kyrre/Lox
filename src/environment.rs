@@ -20,7 +20,9 @@ impl Environment {
     }
 
     pub fn define(&mut self, name: String, value: Object) {
+        // println!("defining: {:?}", name);
         self.values.insert(name, value);
+        // println!("{:?}", self.values);
     }
 
     pub fn assign(&mut self, name: &Token, value: Object) -> Result<Object> {
@@ -36,7 +38,6 @@ impl Environment {
         }
     }
 
-    // some &string template magic here?
     pub fn get(&self, name: &Token) -> Result<Object> {
         let value = self.values.get(&name.lexeme).cloned();
 
@@ -50,25 +51,45 @@ impl Environment {
         }
     }
 
-    pub fn get_at(&mut self, distance: usize, name: &Token) -> Result<Object> {
+    pub fn get_at(&self, distance: usize, name: &Token) -> Result<Object> {
 
-        let value; 
+        //println!("distance = {}", distance);
+        //println!("self.values = {:?}", self.values);
+        //println!("name = {:?}", name);
+        // why is distance set to 1 ???
+
+
+        // println!("{}", distance);
+        // println!("self.values = {:?}", self.values);
+        let value;
         if distance > 0 {
-            value = self.ancestor(distance).borrow().values.get(&name.lexeme).cloned();       
+            value = self
+                .ancestor(distance)
+                .borrow()
+                .values
+                .get(&name.lexeme)
+                .cloned();
         } else {
             value = self.values.get(&name.lexeme).cloned();
         }
-              
-        value.ok_or(Error::Runtime(format!("Undefined variable {}", name.lexeme)))
+
+        // println!("value = {:?}", value);
+
+        value.ok_or(Error::Runtime(format!(
+            "get_at - Undefined variable {}",
+            name.lexeme
+        )))
     }
 
     pub fn assign_at(&mut self, distance: usize, name: &Token, value: Object) -> Result<Object> {
-
         let name = &name.lexeme;
         let v = value.clone();
 
         if distance > 0 {
-            self.ancestor(distance).borrow_mut().values.insert(name.clone(), value);
+            self.ancestor(distance)
+                .borrow_mut()
+                .values
+                .insert(name.clone(), value);
         } else {
             self.values.insert(name.clone(), value);
         }
@@ -76,15 +97,17 @@ impl Environment {
         Ok(v)
     }
 
-    fn ancestor(&mut self, distance: usize) -> Rc<RefCell<Environment>> {
+    fn ancestor(&self, distance: usize) -> Rc<RefCell<Environment>> {
         // how to hande self.enclosing = None ?
         let mut environment = Rc::clone(&self.enclosing.clone().unwrap());
 
         // traverese
-        for _i in 1..distance {
+        for _ in 1..distance {
             let parent = environment.borrow().enclosing.clone().unwrap();
             environment = Rc::clone(&parent);
         }
+
+        // println!("environment = {:?}", environment);
 
         environment
     }

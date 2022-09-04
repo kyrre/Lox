@@ -64,7 +64,7 @@ impl<'a> Scanner<'a> {
         let text = self.source[self.start..self.current]
             .iter()
             .collect::<String>();
-        let token = Token::new(token_type, text, literal, self.line);
+        let token = Token::new(token_type, text, literal, self.line, self.tokens.len());
         self.tokens.push(token);
     }
 
@@ -243,7 +243,13 @@ impl<'a> Scanner<'a> {
             self.scan_token();
         }
 
-        let token = Token::new(EOF, "".to_string(), Literal::None, self.line);
+        let token = Token::new(
+            EOF,
+            "".to_string(),
+            Literal::None,
+            self.line,
+            self.tokens.len(),
+        );
         self.tokens.push(token);
         self.tokens.clone()
     }

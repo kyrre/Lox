@@ -29,21 +29,27 @@ impl fmt::Display for Literal {
 //    }
 //}
 
+
+// static mut token_count: usize = 0;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
     pub literal: Literal,
     pub line: usize,
+    pub unique_count: usize, 
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, literal: Literal, line: usize) -> Self {
+    pub fn new(token_type: TokenType, lexeme: String, literal: Literal, line: usize, unique_count: usize) -> Self {
+
         Token {
             token_type,
             lexeme,
             literal,
             line,
+            unique_count
         }
     }
 }

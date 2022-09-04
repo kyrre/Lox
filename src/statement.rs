@@ -43,8 +43,8 @@ impl Stmt {
             Self::Block { statements } => visitor.visit_block_statement(&statements),
             Self::If{..} => visitor.visit_if_statement(self),
             Self::While {..} => visitor.visit_while_statement(self),
-            Self::Function { name, params, body } => visitor.visit_function_statement(self),
-            Self::Return { keyword, value } => visitor.visit_return_statement(self)
+            Self::Function { .. } => visitor.visit_function_statement(self),
+            Self::Return { .. } => visitor.visit_return_statement(self)
 
         }
     }

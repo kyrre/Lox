@@ -155,8 +155,6 @@ impl Parser {
     }
 
     fn for_statement(&mut self) -> Result<Stmt> {
-
-        println!("inside for_statement");
         self.consume(LEFT_PAREN, "Expect a '(' after 'for.'")?;
 
         let mut initializer = None;
@@ -211,7 +209,7 @@ impl Parser {
             });
         }
 
-        // println(!)
+        // println!("{:?}", body);
 
         body
     }

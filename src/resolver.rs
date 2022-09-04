@@ -30,6 +30,7 @@ impl<'a> Resolver<'a> {
     }
 
     fn resolve_statement(&mut self, statement: &Stmt) -> Result<()> {
+        // println!("resolve_statement {:?}", statement);
         statement.accept(self)
     }
 
@@ -50,7 +51,9 @@ impl<'a> Resolver<'a> {
             self.end_scope();
             Ok(())
         } else {
-            Err(Error::Runtime(format!("should never happend")))
+            Err(Error::Runtime(format!(
+                "resolve_function:: should never happend"
+            )))
         }
     }
 
@@ -60,14 +63,23 @@ impl<'a> Resolver<'a> {
 
     fn declare(&mut self, name: &Token) {
         if let Some(scope) = self.scopes.last_mut() {
+            if scope.contains_key(&name.lexeme) {
+                // println!("Variable with name {} already declared in this scope.", name.lexeme);
+                panic!("aborting");
+            }
+
+            // println!("DECLARING variable {:?}", name);
             scope.insert(name.lexeme.clone(), false);
         }
     }
 
     fn resolve_local(&mut self, name: &Token) {
+        // println!("resolve_local -- {:?}", name);
         for (i, scope) in self.scopes.iter().rev().enumerate() {
+            //println!("{:?}", scope);
             if scope.contains_key(&name.lexeme) {
                 self.interpreter.resolve(name, i);
+                break;
             }
         }
     }
@@ -75,6 +87,7 @@ impl<'a> Resolver<'a> {
     // fn resolve(&mut self, initializer: &Expr) {}
 
     fn define(&mut self, name: &Token) {
+        // println!("\tDEFINING {:?}", name);
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(name.lexeme.clone(), true);
         }
@@ -93,7 +106,12 @@ impl<'a> ExprVisitor<()> for Resolver<'a> {
     }
 
     fn visit_call_expr(&mut self, expr: &Expr) -> crate::errors::Result<()> {
-        if let Expr::Call { callee, paren, arguments } = expr {
+        if let Expr::Call {
+            callee,
+            paren,
+            arguments,
+        } = expr
+        {
             self.resolve_expression(&callee)?;
             for arg in arguments.iter() {
                 self.resolve_expression(arg)?;
@@ -101,25 +119,28 @@ impl<'a> ExprVisitor<()> for Resolver<'a> {
 
             Ok(())
         } else {
-            Err(Error::Runtime(format!("should never happend")))
+            Err(Error::Runtime(format!(
+                "resolver::visit_call_expr - should never happend"
+            )))
         }
     }
 
     fn visit_grouping_expr(&mut self, expr: &Expr) -> crate::errors::Result<()> {
-        if let Expr::Grouping { expression } = expr {
-            self.resolve_expression(expression)
-        } else {
-            Err(Error::Runtime(format!("should never happend")))
-        }
+        self.resolve_expression(expr)
     }
 
     fn visit_literal_expr(&mut self, value: &crate::tokens::Literal) -> crate::errors::Result<()> {
+        // println!("visit_literal_expr");
         Ok(())
     }
 
     fn visit_logical_expr(&mut self, expr: &Expr) -> crate::errors::Result<()> {
-
-        if let Expr::Logical { left, operator, right } = expr {
+        if let Expr::Logical {
+            left,
+            operator,
+            right,
+        } = expr
+        {
             self.resolve_expression(left)?;
             self.resolve_expression(right)
         } else {
@@ -132,11 +153,7 @@ impl<'a> ExprVisitor<()> for Resolver<'a> {
         operator: &crate::tokens::Token,
         right: &Expr,
     ) -> crate::errors::Result<()> {
-        if let Expr::Unary { operator, right } = right {
-            self.resolve_expression(right)
-        } else {
-            Err(Error::Runtime(format!("should never happen")))
-        }
+        self.resolve_expression(right)
     }
 
     fn visit_variable_assignment_expr(&mut self, expr: &Expr) -> crate::errors::Result<()> {
@@ -151,6 +168,7 @@ impl<'a> ExprVisitor<()> for Resolver<'a> {
     }
 
     fn visit_variable_expr(&mut self, name: &crate::tokens::Token) -> crate::errors::Result<()> {
+        // println!("visit_varibale_expr:: name = {:?}", name);
         if let Some(scope) = self.scopes.last_mut() {
             if let Some(false) = scope.get(&name.lexeme) {
                 return Err(Error::Runtime(format!(
@@ -166,9 +184,9 @@ impl<'a> ExprVisitor<()> for Resolver<'a> {
 }
 
 impl<'a> StmtVisitor<()> for Resolver<'a> {
-    fn visit_block_statement(&mut self, statement: &Vec<Stmt>) -> crate::errors::Result<()> {
+    fn visit_block_statement(&mut self, statements: &Vec<Stmt>) -> crate::errors::Result<()> {
         self.begin_scope();
-        self.resolve_statements(statement)?;
+        self.resolve_statements(statements)?;
         self.end_scope();
 
         Ok(())
@@ -234,8 +252,11 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
     }
 
     fn visit_variable_statement(&mut self, statement: &Stmt) -> crate::errors::Result<()> {
+        // println!("visit_variable_statement {:?}", statement);
         if let Stmt::Variable { name, initializer } = statement {
             self.declare(name);
+
+            // println!("init = {:?}", initializer);
 
             if let Some(initializer) = initializer {
                 self.resolve_expression(initializer);

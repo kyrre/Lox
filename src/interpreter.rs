@@ -14,7 +14,6 @@ use crate::tokens::{
     Literal, Token,
     TokenType::{self, *},
 };
-use crate::resolver::Resolver;
 
 use std::rc::Rc;
 
@@ -27,8 +26,8 @@ fn clock_fun(args: Vec<Object>) -> Object {
 #[derive(Default, Debug)]
 pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
-    pub environment: Rc<RefCell<Environment>>,
-    pub locals: HashMap<Token, usize>
+    environment: Rc<RefCell<Environment>>,
+    locals: HashMap<Token, usize>,
 }
 
 impl Interpreter {
@@ -46,13 +45,14 @@ impl Interpreter {
         Interpreter {
             globals,
             environment,
-            locals: HashMap::default()
+            locals: HashMap::default(),
         }
     }
     pub fn interpret(&mut self, statements: &Vec<Stmt>) -> Result<()> {
-        statements
-            .iter()
-            .try_for_each(|statement| self.execute(statement))
+        statements.iter().try_for_each(|statement| {
+            // println!("Executing {:?}", statement);
+            self.execute(statement)
+        })
     }
 
     pub fn evaluate(&mut self, expr: &Expr) -> Result<Object> {
@@ -72,6 +72,7 @@ impl Interpreter {
     }
 
     pub fn resolve(&mut self, name: &Token, i: usize) {
+        // println!("resolving {:?} with distance {}", name, i);
         self.locals.insert(name.clone(), i);
     }
 
@@ -83,27 +84,24 @@ impl Interpreter {
         let previous = Rc::clone(&self.environment);
         self.environment = environment;
 
-        let result = statements
-            .iter()
-            .try_for_each(|statement| self.execute(statement));
+        let result = statements.iter().try_for_each(|statement| {
+            let res = self.execute(statement);
+            res
+        });
         self.environment = previous;
-        result?;
-
-        Ok(())
+        result
     }
 
-    fn lookup_variable(&mut self, name: &Token) -> Result<Object> {
-        let distance = self.locals.get(name);
-
-        if let Some(distance) = distance {
-            self.environment.borrow().get(name)
+    fn lookup_variable(&self, name: &Token) -> Result<Object> {
+        // println!("locals = {:?}", self.locals);
+        if let Some(distance) = self.locals.get(name) {
+            // println!("{:?}", self.environment.borrow());
+            self.environment.borrow().get_at(*distance, name)
         } else {
+            // println!("looking in globals!!");
             self.globals.borrow().get(name)
         }
-
     }
-
-
 }
 
 impl ExprVisitor<Object> for Interpreter {
@@ -127,7 +125,7 @@ impl ExprVisitor<Object> for Interpreter {
             (PLUS, String(left), String(right)) => Ok(String(left.clone() + right)),
 
             _ => {
-                println!("off the rails!");
+                // println!("off the rails!");
                 Err(Error::Runtime(format!(
                     "Error evaluating {} {} {}",
                     left, operator, right
@@ -169,12 +167,13 @@ impl ExprVisitor<Object> for Interpreter {
         self.lookup_variable(name)
     }
 
-
     fn visit_variable_assignment_expr(&mut self, expr: &Expr) -> Result<Object> {
         if let Expr::Assign { name, value: expr } = expr {
             let value = self.evaluate(expr)?;
             if let Some(distance) = self.locals.get(name) {
-                self.environment.borrow_mut().assign_at(distance.clone(), name, value)
+                self.environment
+                    .borrow_mut()
+                    .assign_at(distance.clone(), name, value)
             } else {
                 self.globals.borrow_mut().assign(name, value)
             }
@@ -274,6 +273,7 @@ impl StmtVisitor<()> for Interpreter {
     }
 
     fn visit_variable_statement(&mut self, statement: &Stmt) -> Result<()> {
+        // println!("visit_variable_statement for {:?}", statement);
         if let Stmt::Variable { name, initializer } = statement {
             initializer
                 .as_ref()
@@ -292,8 +292,7 @@ impl StmtVisitor<()> for Interpreter {
         self.execute_block(
             statements,
             Rc::new(RefCell::new(Environment::new(&self.environment))),
-        );
-        Ok(())
+        )
     }
 
     fn visit_if_statement(&mut self, statement: &Stmt) -> Result<()> {
@@ -332,8 +331,7 @@ impl StmtVisitor<()> for Interpreter {
                 name: name.clone(),
                 params: params.clone(),
                 body: body.clone(),
-                closure: Rc::clone(&self.environment)
-                // i guess we need the closure here <_<
+                closure: Rc::clone(&self.environment), // i guess we need the closure here <_<
             });
             self.environment
                 .borrow_mut()
@@ -343,7 +341,6 @@ impl StmtVisitor<()> for Interpreter {
     }
 
     fn visit_return_statement(&mut self, statement: &Stmt) -> Result<()> {
-
         // println!("Hit Return statement");
         // println!("statement = {:?}", statement);
         if let Stmt::Return { keyword, value } = statement {
