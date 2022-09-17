@@ -31,6 +31,10 @@ pub enum Stmt {
     Return {
         keyword: Token,
         value: Option<Expr>
+    },
+    Class {
+        name: Token,
+        methods: Vec<Box<Stmt>>
     }
 }
 
@@ -44,7 +48,8 @@ impl Stmt {
             Self::If{..} => visitor.visit_if_statement(self),
             Self::While {..} => visitor.visit_while_statement(self),
             Self::Function { .. } => visitor.visit_function_statement(self),
-            Self::Return { .. } => visitor.visit_return_statement(self)
+            Self::Return { .. } => visitor.visit_return_statement(self),
+            Self::Class { ..} => visitor.visit_class_statement(self)
 
         }
     }
@@ -59,4 +64,5 @@ pub trait Visitor<T> {
     fn visit_while_statement(&mut self, statement: &Stmt) -> Result<T>;
     fn visit_function_statement(&mut self, statement: &Stmt) -> Result<T>;
     fn visit_return_statement(&mut self, statement: &Stmt) -> Result<T>;
+    fn visit_class_statement(&mut self, statement: &Stmt) -> Result<T>;
 }

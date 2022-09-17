@@ -1,0 +1,6 @@
+class Bagel {
+}
+var bagel = Bagel();
+
+
+bagel.hmm;

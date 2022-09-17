@@ -33,7 +33,9 @@ impl Parser {
         // varDecl  → "var" IDENTIFIER ( "=" expression )? ";" ;
 
         let res = {
-            if self.matches(vec![FUN]) {
+            if self.matches(vec![CLASS]) {
+                self.class_declaration()
+            } else if self.matches(vec![FUN]) {
                 self.function("function")
             } else if self.matches(vec![VAR]) {
                 self.var_declaration()
@@ -50,6 +52,21 @@ impl Parser {
         } else {
             res
         }
+    }
+
+    fn class_declaration(&mut self) -> Result<Stmt> {
+        let name = self.consume(IDENTIFIER, "Expect a class name")?;
+        self.consume(LEFT_BRACE, "Expect a '{' before class body.")?;
+
+        let mut methods = Vec::new();
+
+        while !self.check(RIGHT_BRACE) && !self.is_at_end() {
+            methods.push(Box::new(self.function("method")?));
+        }
+
+        self.consume(RIGHT_BRACE, "Expect a '}' after class body.")?;
+
+        Ok(Stmt::Class { name, methods })
     }
 
     fn function(&mut self, kind: &str) -> Result<Stmt> {
@@ -140,7 +157,6 @@ impl Parser {
     }
 
     fn while_statement(&mut self) -> Result<Stmt> {
-
         println!("while statement");
         self.consume(LEFT_PAREN, "Expect '(' after 'while'.")?;
         let condition = self.expression()?;
@@ -407,6 +423,12 @@ impl Parser {
         loop {
             if self.matches(vec![LEFT_PAREN]) {
                 expr = self.finish_call(expr?);
+            } else if self.matches(vec![DOT]) {
+                let name = self.consume(IDENTIFIER, "Expect property name after '.'.")?;
+                expr = Ok(Expr::Get {
+                    object: Box::new(expr?),
+                    name: name,
+                });
             } else {
                 break;
             }

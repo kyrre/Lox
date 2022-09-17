@@ -5,6 +5,7 @@ use std::default;
 use std::f32::MIN;
 
 use crate::ast::{Expr, Visitor as ExprVisitor};
+use crate::class::Class;
 use crate::environment::{self, Environment};
 use crate::errors::{Error, Result};
 use crate::function::Function;
@@ -206,6 +207,9 @@ impl ExprVisitor<Object> for Interpreter {
                 } else {
                     func.call(self, arguments)
                 }
+            } else if let Object::Class(class) = callee {
+                let instance = class.call(self, &arguments);
+                Ok(Object::Instance(instance))
             } else {
                 Err(Error::Runtime(format!(
                     "{:?} Call only call functions and classes.",
@@ -240,6 +244,21 @@ impl ExprVisitor<Object> for Interpreter {
             Err(Error::Runtime(format!(
                 "visit_logical_expr called for non Expr::Logical enum!"
             )))
+        }
+    }
+
+    fn visit_get_expr(&mut self, expr: &Expr) -> Result<Object> {
+
+        println!("calling instance.get");
+        if let Expr::Get { object, name } = expr {
+            let object = self.evaluate(object)?;
+            if let Object::Instance(object) = object {
+                object.get(name)
+            } else {
+                Err(Error::Runtime(format!("Only instances have properties.")))
+            }
+        } else {
+            Err(Error::Runtime(format!("Something is very wrong!")))
         }
     }
 }
@@ -351,6 +370,22 @@ impl StmtVisitor<()> for Interpreter {
             Err(Error::Return {
                 value: return_value,
             })
+        } else {
+            Err(Error::Runtime(format!("this should never happend")))
+        }
+    }
+
+    fn visit_class_statement(&mut self, statement: &Stmt) -> Result<()> {
+        if let Stmt::Class { name, methods } = statement {
+            self.environment
+                .borrow_mut()
+                .define(name.lexeme.clone(), Object::None);
+
+            let class = Object::Class(Class::new(name.lexeme.clone()));
+
+            self.environment.borrow_mut().assign(name, class);
+
+            Ok(())
         } else {
             Err(Error::Runtime(format!("this should never happend")))
         }

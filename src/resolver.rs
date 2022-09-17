@@ -1,14 +1,22 @@
 #![allow(dead_code, unused)]
 use crate::ast::{Expr, Visitor as ExprVisitor};
 use crate::errors::{Error, Result};
+use crate::function::Function;
 use crate::interpreter::Interpreter;
 use crate::statement::{self, Stmt, Visitor as StmtVisitor};
 use crate::tokens::Token;
 use std::collections::HashMap;
 
+#[derive(Debug, Clone)]
+pub enum FunctionType {
+    None,
+    Function,
+}
+
 pub struct Resolver<'a> {
     interpreter: &'a mut Interpreter,
     scopes: Vec<HashMap<String, bool>>,
+    current_function: FunctionType,
 }
 
 impl<'a> Resolver<'a> {
@@ -16,6 +24,7 @@ impl<'a> Resolver<'a> {
         Resolver {
             interpreter,
             scopes: Vec::default(),
+            current_function: FunctionType::None,
         }
     }
 
@@ -38,8 +47,11 @@ impl<'a> Resolver<'a> {
         expr.accept(self)
     }
 
-    fn resolve_function(&mut self, function: &Stmt) -> Result<()> {
+    fn resolve_function(&mut self, function: &Stmt, function_type: FunctionType) -> Result<()> {
         if let Stmt::Function { name, params, body } = function {
+            let enclosing_function = self.current_function.clone();
+            self.current_function = function_type;
+
             self.begin_scope();
 
             // parameters
@@ -49,6 +61,8 @@ impl<'a> Resolver<'a> {
             }
             self.resolve_statements(body)?;
             self.end_scope();
+            self.current_function = enclosing_function;
+
             Ok(())
         } else {
             Err(Error::Runtime(format!(
@@ -181,6 +195,15 @@ impl<'a> ExprVisitor<()> for Resolver<'a> {
 
         Ok(())
     }
+
+
+    fn visit_get_expr(&mut self, expr: &Expr) -> Result<()> {
+        if let Expr::Get { object, name } = expr {
+            self.resolve_expression(object)
+        } else {
+            Err(Error::Runtime(format!("should never happen")))
+        }
+    }
 }
 
 impl<'a> StmtVisitor<()> for Resolver<'a> {
@@ -204,7 +227,7 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
         if let Stmt::Function { name, params, body } = statement {
             self.declare(name);
             self.define(name);
-            self.resolve_function(statement)
+            self.resolve_function(statement, FunctionType::Function)
         } else {
             Err(Error::Runtime(format!("should never happen!")))
         }
@@ -240,6 +263,10 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
     }
 
     fn visit_return_statement(&mut self, statement: &Stmt) -> crate::errors::Result<()> {
+        if let FunctionType::None = self.current_function {
+            return Err(Error::Runtime(format!("Returning outside of function.")));
+        }
+
         if let Stmt::Return { keyword, value } = statement {
             if let Some(expr) = value {
                 self.resolve_expression(expr)
@@ -274,6 +301,17 @@ impl<'a> StmtVisitor<()> for Resolver<'a> {
         if let Stmt::While { condition, body } = statement {
             self.resolve_expression(condition)?;
             self.resolve_statement(body)
+        } else {
+            Err(Error::Runtime(format!("This should never happen!")))
+        }
+    }
+
+    fn visit_class_statement(&mut self, statement: &Stmt) -> Result<()> {
+        if let Stmt::Class { name, methods } = statement {
+            self.declare(name);
+            self.define(name);
+
+            Ok(())
         } else {
             Err(Error::Runtime(format!("This should never happen!")))
         }

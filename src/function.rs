@@ -47,7 +47,7 @@ impl Function {
             }
         };
 
-        println!("call - result = {:?}", res);
+        // println!("call - result = {:?}", res);
 
         res
     }

@@ -10,3 +10,4 @@ pub mod tokens;
 pub mod function;
 pub mod object;
 pub mod resolver;
+pub mod class;

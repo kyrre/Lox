@@ -1,4 +1,5 @@
 use crate::function::Function;
+use crate::class::{Class, Instance};
 use std::fmt;
 
 #[derive(Debug, Clone)]
@@ -8,6 +9,8 @@ pub enum Object {
     Char(char),
     Boolean(bool),
     Callable(Function),
+    Class(Class),
+    Instance(Instance),
     None,
 }
 
@@ -20,6 +23,9 @@ impl fmt::Display for Object {
             Object::Boolean(value) => write!(f, "{}", value),
             Object::None => write!(f, "null"),
             Object::Callable(func) => write!(f, "{:?}", func),
+            Object::Class(class) => write!(f, "{:?}", class),
+            Object::Instance(instance) => write!(f, "{:?}", instance),
+
         }
     }
 }

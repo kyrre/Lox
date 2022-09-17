@@ -35,7 +35,16 @@ pub enum Expr {
         callee: Box<Expr>,
         paren: Token,
         arguments: Vec<Expr>
-    }    
+    },
+    Get {
+        object: Box<Expr>,
+        name: Token
+    },
+    Set {
+        object: Box<Expr>,
+        name: Token,
+        value: Box<Expr>
+    }
 }
 
 pub trait Visitor<T> {
@@ -47,6 +56,8 @@ pub trait Visitor<T> {
     fn visit_variable_assignment_expr(&mut self, expr: &Expr) -> Result<T>;
     fn visit_logical_expr(&mut self, expr: &Expr) -> Result<T>;
     fn visit_call_expr(&mut self, expr: &Expr) -> Result<T>;
+    fn visit_get_expr(&mut self, expr: &Expr) -> Result<T>;
+    fn visit_set_expr(&mut self, expr: &Expr) -> Result<T>;
 
 }
 
@@ -64,7 +75,9 @@ impl Expr {
             Expr::Variable { name } => visitor.visit_variable_expr(&name),
             Expr::Assign { .. } => visitor.visit_variable_assignment_expr(&self),
             Expr::Logical{..} => visitor.visit_logical_expr(self),
-            Expr::Call { .. } => visitor.visit_call_expr(self)
+            Expr::Call { .. } => visitor.visit_call_expr(self),
+            Expr::Get { object, name } => visitor.visit_get_expr(self),
+            Expr::Set { object, name, value } => visitor.visit_set_expr(self)
         }
     }
 }

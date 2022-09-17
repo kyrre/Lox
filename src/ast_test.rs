@@ -9,6 +9,7 @@ fn test_ast() {
                 lexeme: "-".to_string(),
                 literal: Literal::None,
                 line: 1,
+                unique_count: 0
             },
             right: Box::new(Expr::Literal {
                 value: Literal::Number(123 as f64),
@@ -19,6 +20,7 @@ fn test_ast() {
             lexeme: "*".to_string(),
             literal: Literal::None,
             line: 1,
+            unique_count: 0
         },
         right: Box::new(Expr::Grouping {
             expression: Box::new(Expr::Literal {
